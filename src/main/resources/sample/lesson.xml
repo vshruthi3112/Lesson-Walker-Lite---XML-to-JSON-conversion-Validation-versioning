@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lesson version="1.0">
+    <title>Introduction to Java</title>
+    <chapters>
+        <chapter id="1">
+            <title>Getting Started</title>
+            <content>Java is a high-level, object-oriented programming language. In this chapter, we cover installation, IDE setup, and your first program.</content>
+        </chapter>
+        <chapter id="2">
+            <title>Variables and Types</title>
+            <content>Java has primitive types (int, double, boolean, char) and reference types (String, arrays, objects). We explore declarations, assignments, and type casting.</content>
+        </chapter>
+        <chapter id="3">
+            <title>Control Flow</title>
+            <content>Learn about if-else statements, switch expressions, for loops, while loops, and how to control program execution flow.</content>
+        </chapter>
+    </chapters>
+    <exercises>
+        <exercise id="1" type="quiz">
+            <question>What is the JVM?</question>
+            <answer>Java Virtual Machine - it executes Java bytecode and provides platform independence.</answer>
+        </exercise>
+        <exercise id="2" type="coding">
+            <question>Write a Hello World program in Java.</question>
+            <hint>Use System.out.println inside a main method.</hint>
+        </exercise>
+        <exercise id="3" type="quiz">
+            <question>What is the difference between == and .equals() in Java?</question>
+            <answer>== compares references (memory addresses), while .equals() compares the actual content/values of objects.</answer>
+        </exercise>
+        <exercise id="4" type="coding">
+            <question>Write a for loop that prints numbers 1 to 10.</question>
+            <hint>Use a for loop with an int counter starting at 1.</hint>
+        </exercise>
+    </exercises>
+</lesson>
