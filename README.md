@@ -297,4 +297,7 @@ java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar src/main/resources/sample/l
 
 # See usage help
 java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar
+
+# Missing or unreadable file
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar src/main/resources/sample/nonexistent.xml output/lesson.json
 ```
