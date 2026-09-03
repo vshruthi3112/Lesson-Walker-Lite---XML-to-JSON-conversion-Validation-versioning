@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <!-- Root element -->
+    <xs:element name="lesson" type="lessonType"/>
+
+    <!-- Lesson type with version attribute -->
+    <xs:complexType name="lessonType">
+        <xs:sequence>
+            <xs:element name="title" type="nonEmptyString"/>
+            <xs:element name="chapters" type="chaptersType"/>
+            <xs:element name="exercises" type="exercisesType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="version" type="versionString" use="required"/>
+    </xs:complexType>
+
+    <!-- Version pattern: major.minor (e.g., 1.0, 2.1) -->
+    <xs:simpleType name="versionString">
+        <xs:restriction base="xs:string">
+            <xs:pattern value="\d+\.\d+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Non-empty string type -->
+    <xs:simpleType name="nonEmptyString">
+        <xs:restriction base="xs:string">
+            <xs:minLength value="1"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- Chapters container -->
+    <xs:complexType name="chaptersType">
+        <xs:sequence>
+            <xs:element name="chapter" type="chapterType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Single chapter -->
+    <xs:complexType name="chapterType">
+        <xs:sequence>
+            <xs:element name="title" type="nonEmptyString"/>
+            <xs:element name="content" type="xs:string"/>
+        </xs:sequence>
+        <xs:attribute name="id" type="xs:positiveInteger" use="required"/>
+    </xs:complexType>
+
+    <!-- Exercises container -->
+    <xs:complexType name="exercisesType">
+        <xs:sequence>
+            <xs:element name="exercise" type="exerciseType" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Single exercise -->
+    <xs:complexType name="exerciseType">
+        <xs:sequence>
+            <xs:element name="question" type="nonEmptyString"/>
+            <xs:element name="answer" type="xs:string" minOccurs="0"/>
+            <xs:element name="hint" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="id" type="xs:positiveInteger" use="required"/>
+        <xs:attribute name="type" type="exerciseTypeEnum" use="required"/>
+    </xs:complexType>
+
+    <!-- Allowed exercise types -->
+    <xs:simpleType name="exerciseTypeEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="quiz"/>
+            <xs:enumeration value="coding"/>
+            <xs:enumeration value="practice"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>

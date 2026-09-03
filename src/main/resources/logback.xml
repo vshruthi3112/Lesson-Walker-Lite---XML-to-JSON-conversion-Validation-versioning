@@ -1,23 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+
+    <!-- Console appender: user-facing output -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%level] %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss} [%level] %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- Main log file: all application events -->
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>logs/lesson-walker.log</file>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] %logger{50} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%thread] %logger{50} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Application logging -->
+    <!-- Error log file: errors and warnings only -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/lesson-walker-errors.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%thread] %logger{50} - %msg%n%ex</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Application logging at DEBUG level -->
     <logger name="com.lessonwalker" level="DEBUG" />
 
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
+        <appender-ref ref="ERROR_FILE" />
     </root>
 </configuration>

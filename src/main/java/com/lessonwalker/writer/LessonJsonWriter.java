@@ -2,10 +2,13 @@ package com.lessonwalker.writer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.lessonwalker.exception.LessonWriteException;
 import com.lessonwalker.model.Lesson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
@@ -28,19 +31,25 @@ public class LessonJsonWriter {
      *
      * @param lesson   the lesson to write
      * @param jsonFile the output file path
-     * @throws Exception if writing fails
+     * @throws LessonWriteException if writing fails
      */
-    public void write(Lesson lesson, Path jsonFile) throws Exception {
+    public void write(Lesson lesson, Path jsonFile) throws LessonWriteException {
         logger.debug("Serializing lesson to JSON: {}", jsonFile);
 
-        // Ensure parent directories exist
-        if (jsonFile.getParent() != null) {
-            java.nio.file.Files.createDirectories(jsonFile.getParent());
+        try {
+            // Ensure parent directories exist
+            if (jsonFile.getParent() != null) {
+                Files.createDirectories(jsonFile.getParent());
+            }
+
+            objectMapper.writeValue(jsonFile.toFile(), lesson);
+
+            long fileSize = jsonFile.toFile().length();
+            logger.info("JSON written successfully: {} bytes -> {}", fileSize, jsonFile);
+        } catch (IOException e) {
+            throw new LessonWriteException(
+                    "Failed to write JSON to " + jsonFile + ": " + e.getMessage(), e);
         }
-
-        objectMapper.writeValue(jsonFile.toFile(), lesson);
-
-        logger.info("JSON written successfully: {} bytes", jsonFile.toFile().length());
     }
 
     /**
@@ -48,9 +57,14 @@ public class LessonJsonWriter {
      *
      * @param lesson the lesson to serialize
      * @return JSON string representation
-     * @throws Exception if serialization fails
+     * @throws LessonWriteException if serialization fails
      */
-    public String writeToString(Lesson lesson) throws Exception {
-        return objectMapper.writeValueAsString(lesson);
+    public String writeToString(Lesson lesson) throws LessonWriteException {
+        try {
+            return objectMapper.writeValueAsString(lesson);
+        } catch (IOException e) {
+            throw new LessonWriteException(
+                    "Failed to serialize lesson to JSON string: " + e.getMessage(), e);
+        }
     }
 }

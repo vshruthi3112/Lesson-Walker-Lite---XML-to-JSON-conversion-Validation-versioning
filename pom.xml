@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>Lesson Walker Lite</name>
-    <description>XML to JSON lesson converter - Week 9 project</description>
+    <description>XML to JSON lesson converter with validation and versioning - Week 10 project</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

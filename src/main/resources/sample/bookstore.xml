@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    This is a completely different XML structure — a bookstore catalog.
+    It has nothing to do with the lesson schema, so validation will fail
+    immediately with errors about the unexpected root element and missing
+    required lesson structure.
+-->
+<bookstore>
+    <book category="fiction">
+        <title>The Great Gatsby</title>
+        <author>F. Scott Fitzgerald</author>
+        <year>1925</year>
+        <price>10.99</price>
+    </book>
+    <book category="science">
+        <title>A Brief History of Time</title>
+        <author>Stephen Hawking</author>
+        <year>1988</year>
+        <price>15.50</price>
+    </book>
+</bookstore>

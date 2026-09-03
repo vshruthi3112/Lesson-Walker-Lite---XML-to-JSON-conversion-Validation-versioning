@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    This file has multiple schema violations to demonstrate validation errors:
+    1. version="abc" — must match pattern \d+\.\d+ (e.g., "1.0")
+    2. <title> is empty — must be a nonEmptyString (minLength=1)
+    3. chapter is missing the required "id" attribute
+    4. exercise type="essay" — not in the allowed enum (quiz, coding, practice)
+    5. exercise is missing the required "question" element
+-->
+<lesson version="abc">
+    <title></title>
+    <chapters>
+        <chapter>
+            <title>Chapter Without ID</title>
+            <content>This chapter is missing the required id attribute.</content>
+        </chapter>
+        <chapter id="0">
+            <title>Bad Chapter ID</title>
+            <content>id="0" is invalid because the schema requires xs:positiveInteger (must be >= 1).</content>
+        </chapter>
+    </chapters>
+    <exercises>
+        <exercise id="1" type="essay">
+            <question>This exercise has an invalid type.</question>
+        </exercise>
+        <exercise id="2" type="quiz">
+            <hint>This exercise is missing the required question element.</hint>
+        </exercise>
+    </exercises>
+</lesson>

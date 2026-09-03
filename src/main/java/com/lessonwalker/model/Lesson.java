@@ -4,11 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Represents a complete lesson with title, chapters, and exercises.
+ * Represents a complete lesson with version, title, chapters, and exercises.
  * This is the root model object produced by XML parsing and serialized to JSON.
  */
 public class Lesson {
 
+    private String version;
     private String title;
     private List<Chapter> chapters;
     private List<Exercise> exercises;
@@ -18,10 +19,19 @@ public class Lesson {
         this.exercises = new ArrayList<>();
     }
 
-    public Lesson(String title, List<Chapter> chapters, List<Exercise> exercises) {
+    public Lesson(String version, String title, List<Chapter> chapters, List<Exercise> exercises) {
+        this.version = version;
         this.title = title;
         this.chapters = chapters != null ? chapters : new ArrayList<>();
         this.exercises = exercises != null ? exercises : new ArrayList<>();
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
     }
 
     public String getTitle() {
@@ -50,6 +60,8 @@ public class Lesson {
 
     @Override
     public String toString() {
-        return "Lesson{title='" + title + "', chapters=" + chapters.size() + ", exercises=" + exercises.size() + "}";
+        return "Lesson{version='" + version + "', title='" + title
+                + "', chapters=" + chapters.size()
+                + ", exercises=" + exercises.size() + "}";
     }
 }
