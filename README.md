@@ -225,42 +225,263 @@ Same libraries as Week 9, now with an additional error-only log file for product
 
 ## Data Flow (How It All Connects)
 
+### Overview
+
+The application is a 3-step pipeline. `Main.java` orchestrates the entire flow:
+
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         Main.java                                 │
-│                                                                   │
-│  1. Read command-line args (input.xml, output.json)              │
-│  2. Validate input file exists                                    │
-│  3. Call validator.validate(xmlFile)     ← NEW: Schema check     │
-│  4. Call parser.parse(xmlFile)                                    │
-│  5. Call writer.write(lesson, jsonFile)                           │
-│  6. Log summary with version info        ← NEW: Version support  │
-└──────┬──────────────┬──────────────────────┬─────────────────────┘
-       │              │                      │
-       ▼              ▼                      ▼
-┌──────────────┐ ┌─────────────────┐  ┌──────────────────────────┐
-│ Schema       │ │ LessonXmlParser │  │   LessonJsonWriter       │
-│ Validator    │ │                 │  │                          │
-│              │ │ XML File        │  │  Lesson object           │
-│ XML + XSD   │ │  → DOM Document │  │   → ObjectMapper         │
-│  → Pass/Fail│ │  → Extract data │  │   → JSON File            │
-│  → Error    │ │  → Build Lesson │  │                          │
-│    details  │ │    (w/ version) │  │                          │
-└──────────────┘ └────────┬────────┘  └──────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────┐
-│           Model Classes              │
-│                                      │
-│  Lesson                              │
-│  ├── version: String    ← NEW       │
-│  ├── title: String                   │
-│  ├── chapters: List<Chapter>         │
-│  │   └── Chapter {id, title, content}│
-│  └── exercises: List<Exercise>       │
-│      └── Exercise {id, type, ...}    │
-└──────────────────────────────────────┘
+lesson.xml (text file on disk)
+    │
+    ▼
+┌─ STEP 1: VALIDATE ─────────────────────────┐
+│  lesson.xsd (rules) + lesson.xml (data)     │
+│  → SchemaFactory compiles XSD               │
+│  → Validator checks XML against rules       │
+│  → CollectingErrorHandler gathers errors    │
+│  → Pass: continue / Fail: exit(2)           │
+└─────────────────────────────────────────────┘
+    │ (XML is valid)
+    ▼
+┌─ STEP 2: PARSE ────────────────────────────┐
+│  lesson.xml → DocumentBuilder (XXE-safe)    │
+│  → DOM tree (Nodes in memory)               │
+│  → Walk tree, extract attributes & text     │
+│  → Build Lesson, Chapter, Exercise objects  │
+└─────────────────────────────────────────────┘
+    │ (Lesson object with all data)
+    ▼
+┌─ STEP 3: WRITE ────────────────────────────┐
+│  Lesson object → ObjectMapper               │
+│  → Reflection reads getters                 │
+│  → @JsonInclude skips nulls                 │
+│  → Pretty-print with indentation            │
+│  → Write to output/lesson.json              │
+└─────────────────────────────────────────────┘
+    │
+    ▼
+lesson.json (formatted JSON file on disk)
 ```
+
+The data changes form three times:
+1. **XML text** → **DOM tree** (in-memory nodes) during parsing
+2. **DOM tree** → **Java objects** (Lesson/Chapter/Exercise) during extraction
+3. **Java objects** → **JSON text** during serialization
+
+Each stage has its own error handling, its own exit code, and its own log messages. If anything breaks at any stage, the pipeline stops immediately with a clear explanation of what went wrong.
+
+---
+
+### Step 0: The User Runs the Command
+
+```bash
+java -jar lesson-walker-lite-1.0-SNAPSHOT.jar lesson.xml output/lesson.json
+```
+
+The JVM starts and calls `Main.main(args)` where `args = ["lesson.xml", "output/lesson.json"]`.
+
+---
+
+### Step 1: Main.java — Read and Validate Arguments
+
+```java
+String inputPath = args[0];                          // "lesson.xml"
+String outputPath = args.length > 1 ? args[1] : "output/lesson.json";
+
+Path xmlFile = Paths.get(inputPath);
+Path jsonFile = Paths.get(outputPath);
+```
+
+Main does two safety checks before anything else:
+- `Files.exists(xmlFile)` — does the file actually exist on disk?
+- `Files.isReadable(xmlFile)` — can we read it (permissions)?
+
+If either fails → log error, `System.exit(1)`. The app never touches the XML content. This is the cheapest possible check.
+
+---
+
+### Step 2: LessonSchemaValidator — Is the XML Structurally Correct?
+
+```java
+LessonSchemaValidator validator = new LessonSchemaValidator();
+validator.validate(xmlFile);
+```
+
+This is a two-phase process:
+
+**Phase A: Load the schema (happens in the constructor)**
+```
+lesson.xsd (from classpath via getResourceAsStream)
+    ↓
+SchemaFactory.newSchema()
+    ↓
+Schema object (compiled rules in memory)
+```
+
+The XSD file gets loaded from inside the JAR via `getClass().getResourceAsStream("/schema/lesson.xsd")`. The `SchemaFactory` compiles it into a `Schema` object — a "rule engine" that knows what valid XML looks like.
+
+**Phase B: Validate the XML against those rules**
+```
+lesson.xml + Schema object
+    ↓
+Validator.validate()
+    ↓
+CollectingErrorHandler gathers errors into List<String>
+    ↓
+0 errors → return (pass)
+N errors → throw LessonValidationException (with all N error messages)
+```
+
+The `CollectingErrorHandler` is an inner class that implements the SAX `ErrorHandler` interface with three methods:
+- `warning()` → logs it, doesn't count as an error
+- `error()` → adds `"Line 8: cvc-complex-type..."` to the error list, **keeps going**
+- `fatalError()` → adds to list AND throws (can't continue past fatal XML issues)
+
+After validation completes, if the error list is non-empty, it throws `LessonValidationException` carrying all the errors. Main catches this, logs every error, and exits with code 2.
+
+If validation passes, the XML is **guaranteed** to have:
+- A `version` attribute matching `\d+\.\d+`
+- A non-empty `<title>`
+- At least one `<chapter>` with a positive integer `id` and non-empty `<title>`
+- Exercises (if present) with valid `type` (quiz/coding/practice) and `<question>`
+
+---
+
+### Step 3: LessonXmlParser — Turn XML Text Into Java Objects
+
+```java
+LessonXmlParser parser = new LessonXmlParser();
+Lesson lesson = parser.parse(xmlFile);
+```
+
+Three sub-steps happen here:
+
+**3a: Load XML into a DOM tree**
+
+```
+lesson.xml (text on disk)
+    ↓
+DocumentBuilderFactory (with XXE protections enabled)
+    ↓
+DocumentBuilder.parse()
+    ↓
+Document object (in-memory tree)
+```
+
+The XML file gets parsed into a tree of `Node` objects in memory. After calling `normalize()`, the tree looks like:
+
+```
+Document
+└── Element: <lesson version="1.0">
+    ├── Element: <title> → "Introduction to Java"
+    ├── Element: <chapters>
+    │   ├── Element: <chapter id="1">
+    │   │   ├── Element: <title> → "Getting Started"
+    │   │   └── Element: <content> → "Java is a..."
+    │   ├── Element: <chapter id="2"> ...
+    │   └── Element: <chapter id="3"> ...
+    └── Element: <exercises>
+        ├── Element: <exercise id="1" type="quiz">
+        │   ├── Element: <question> → "What is the JVM?"
+        │   └── Element: <answer> → "Java Virtual Machine..."
+        └── ... more exercises
+```
+
+**3b: Extract data from the tree**
+
+The parser walks this tree and pulls data out:
+
+```java
+Element root = document.getDocumentElement();        // <lesson>
+String version = root.getAttribute("version");       // "1.0"
+String title = getTextContent(root, "title");        // "Introduction to Java"
+
+// Walk <chapters> → <chapter> elements
+NodeList chapterNodes = chaptersElement.getElementsByTagName("chapter");
+// For each: read id attribute, title element, content element
+```
+
+**3c: Build model objects**
+
+As the parser extracts data, it constructs Java objects:
+
+```
+Lesson
+├── version = "1.0"
+├── title = "Introduction to Java"
+├── chapters = [
+│   Chapter{id=1, title="Getting Started", content="Java is a..."},
+│   Chapter{id=2, title="Variables and Types", content="Java has..."},
+│   Chapter{id=3, title="Control Flow", content="Learn about..."}
+│ ]
+└── exercises = [
+    Exercise{id=1, type="quiz", question="What is the JVM?",
+             answer="Java Virtual Machine...", hint=null},
+    Exercise{id=2, type="coding", question="Write a Hello World...",
+             answer=null, hint="Use System.out..."},
+    Exercise{id=3, type="quiz", question="What is the difference...",
+             answer="== compares...", hint=null},
+    Exercise{id=4, type="coding", question="Write a for loop...",
+             answer=null, hint="Use a for loop..."}
+  ]
+```
+
+Note: some exercises have `answer=null`, others have `hint=null`. These are the optional fields that `@JsonInclude(NON_NULL)` handles in the next step.
+
+---
+
+### Step 4: LessonJsonWriter — Java Objects to JSON File
+
+```java
+LessonJsonWriter writer = new LessonJsonWriter();
+writer.write(lesson, jsonFile);
+```
+
+**4a: Ensure the output directory exists**
+```java
+Files.createDirectories(jsonFile.getParent());   // creates "output/" if missing
+```
+
+**4b: Serialize using Jackson's ObjectMapper**
+```
+Lesson object
+    ↓
+ObjectMapper (with INDENT_OUTPUT enabled for pretty-printing)
+    ↓
+Jackson introspects the object using reflection:
+    - Calls getVersion()   → writes "version": "1.0"
+    - Calls getTitle()     → writes "title": "Introduction to Java"
+    - Calls getChapters()  → iterates the list
+        - For each Chapter: getId(), getTitle(), getContent()
+    - Calls getExercises() → iterates the list
+        - For each Exercise: getId(), getType(), getQuestion(), getAnswer(), getHint()
+        - @JsonInclude(NON_NULL) → skips getAnswer()/getHint() when they return null
+    ↓
+Pretty-printed JSON written to output/lesson.json
+```
+
+---
+
+### Step 5: Main.java — Log Summary and Exit
+
+```java
+logger.info("=== Conversion complete! {} -> {} ===", xmlFile, jsonFile);
+```
+
+Main logs the final summary and the JVM exits with code 0 (success).
+
+---
+
+### Error Handling at Each Stage
+
+If anything breaks at any step, a specific exception is thrown and Main catches it:
+
+| Stage | Exception | Exit Code | What Went Wrong |
+|-------|-----------|-----------|-----------------|
+| Arguments / file check | — (direct exit) | 1 | Missing args or file not found |
+| Schema validation | `LessonValidationException` | 2 | XML violates XSD rules (with full error list) |
+| XML parsing | `LessonParseException` | 3 | Malformed XML or missing required elements |
+| JSON writing | `LessonWriteException` | 4 | Cannot create output file or serialization error |
+| Anything else | `LessonWalkerException` | 5 | Unexpected application error |
 
 ---
 
