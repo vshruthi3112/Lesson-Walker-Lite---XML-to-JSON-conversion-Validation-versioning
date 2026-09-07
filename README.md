@@ -5,7 +5,25 @@
 This is a **command-line Java application** that reads lesson data from an XML file, validates it against an XSD schema, and converts it into a JSON file. Think of it as a data transformation tool with built-in quality checks:
 
 ```
-lesson.xml  →  [Schema Validation]  →  [Lesson Walker Lite]  →  lesson.json
+lesson.xml
+   │
+   ▼
+[LessonSchemaValidator]  ── Validates XML against lesson.xsd rules
+   │                        (version format, required fields, allowed types)
+   │                        Uses CollectingErrorHandler to gather ALL errors
+   │
+   ▼
+[LessonXmlParser]        ── Reads validated XML using DOM parsing (XXE-safe)
+   │                        Walks the DOM tree, extracts attributes & text
+   │                        Builds Java objects: Lesson, Chapter, Exercise
+   │
+   ▼
+[LessonJsonWriter]       ── Serializes Java objects to JSON using Jackson
+   │                        ObjectMapper with pretty-printing enabled
+   │                        @JsonInclude(NON_NULL) skips null optional fields
+   │
+   ▼
+lesson.json
 ```
 
 **Why would you do this?**
