@@ -404,6 +404,46 @@ Document
         └── ... more exercises
 ```
 
+**Why XXE protection matters in this step**
+
+Without the security settings in `loadDocument()`, an attacker could craft a malicious XML file like this:
+
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE lesson [
+  <!ENTITY steal SYSTEM "file:///etc/passwd">
+]>
+<lesson version="1.0">
+    <title>&steal;</title>
+    ...
+</lesson>
+```
+
+Here's what would happen with an **unprotected** parser:
+1. The parser sees `<!DOCTYPE>` and processes the entity definition
+2. `<!ENTITY steal SYSTEM "file:///etc/passwd">` tells the parser: "whenever you see `&steal;`, replace it with the contents of `/etc/passwd`"
+3. When the parser reaches `<title>&steal;</title>`, it reads the actual password file from the server
+4. That sensitive data ends up in the `title` field — and eventually in the JSON output
+
+Our parser blocks this with these settings in `loadDocument()`:
+
+```java
+// Disallow DOCTYPE entirely — kills XXE at the root
+factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+
+// Even if DOCTYPE slipped through, block external entity resolution
+factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+
+// Block any external DTD or schema loading
+factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+```
+
+With these protections, if someone feeds in the malicious XML above, the parser immediately throws a `SAXException` ("DOCTYPE is disallowed") which gets wrapped in `LessonParseException` → exit code 3. The file is never read, the entity is never resolved, and no sensitive data leaks.
+
+---
+
 **3b: Extract data from the tree**
 
 The parser walks this tree and pulls data out:
