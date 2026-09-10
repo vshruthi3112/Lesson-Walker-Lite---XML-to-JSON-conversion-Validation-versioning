@@ -610,6 +610,53 @@ Create a file with an invalid version format:
 java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar test-invalid.xml
 ```
 
+### XML Parse Failure (Exit Code 3)
+
+Exit code 3 is normally unreachable because the XSD validator (Step 1) catches structural issues before the parser (Step 2) runs. This is defense-in-depth by design. To demo it, temporarily bypass validation.
+
+**Step 1:** Comment out validation in `Main.java`:
+```java
+// logger.info("Step 1/3 - Validating XML schema...");
+// LessonSchemaValidator validator = new LessonSchemaValidator();
+// validator.validate(xmlFile);
+```
+
+**Step 2:** Create `src/main/resources/sample/test-parse-fail.xml` with a wrong root element:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<book version="1.0">
+    <title>Not a lesson</title>
+</book>
+```
+
+**Step 3:** Rebuild and run:
+```powershell
+mvn clean package -q
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar src/main/resources/sample/test-parse-fail.xml
+```
+
+Expected output:
+```
+[ERROR] XML parsing failed: Root element must be <lesson>, found: <book>
+```
+
+**Step 4:** Uncomment the validation lines in `Main.java` and rebuild when done.
+
+### JSON Write Failure (Exit Code 4)
+
+Point the output to a path you don't have write access to. No code changes needed.
+
+```powershell
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar src/main/resources/sample/lesson.xml C:/Windows/System32/lesson.json
+```
+
+Expected output:
+```
+[ERROR] JSON writing failed: Failed to write JSON to C:\Windows\System32\lesson.json: Access is denied
+```
+
+Parsing succeeds, but Windows blocks writing to `System32`, triggering `LessonWriteException` → exit code 4.
+
 ---
 
 ## Quick Reference — Common Commands
