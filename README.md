@@ -562,6 +562,56 @@ If anything breaks at any step, a specific exception is thrown and Main catches 
 
 ---
 
+## Testing Error Scenarios
+
+These commands let you manually trigger each error path in `Main.java` to verify the logging and exit codes.
+
+### Missing Arguments (Exit Code 1)
+```bash
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar
+```
+
+### File Not Found (Exit Code 1)
+```bash
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar nonexistent.xml
+```
+
+### File Not Readable (Exit Code 1) — Windows PowerShell
+```powershell
+# Create a dummy file
+echo "<lesson></lesson>" > test-unreadable.xml
+
+# Deny read permission for your user
+icacls test-unreadable.xml /deny "${env:USERNAME}:(R)"
+
+# Run the app — triggers the !Files.isReadable() branch
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar test-unreadable.xml
+
+# Clean up — restore permissions and delete
+icacls test-unreadable.xml /grant "${env:USERNAME}:(R)"
+del test-unreadable.xml
+```
+
+> **Note:** Run from a non-elevated (non-Admin) terminal. Administrator sessions may override deny rules.
+
+### Schema Validation Failure (Exit Code 2)
+
+Create a file with an invalid version format:
+```xml
+<!-- test-invalid.xml -->
+<lesson version="abc">
+    <title>Bad Lesson</title>
+    <chapters>
+        <chapter id="1"><title>Ch1</title><content>text</content></chapter>
+    </chapters>
+</lesson>
+```
+```bash
+java -jar target/lesson-walker-lite-1.0-SNAPSHOT.jar test-invalid.xml
+```
+
+---
+
 ## Quick Reference — Common Commands
 
 ```bash
